@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30503.244
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "setup", "setup\setup.csproj", "{D5B542A0-4722-465C-981B-BD18332635FF}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6F4B1792-87D6-402F-A1A4-7878B76B19BC} = {6F4B1792-87D6-402F-A1A4-7878B76B19BC}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "uninstall", "uninstall\uninstall.csproj", "{6F4B1792-87D6-402F-A1A4-7878B76B19BC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D5B542A0-4722-465C-981B-BD18332635FF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5B542A0-4722-465C-981B-BD18332635FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5B542A0-4722-465C-981B-BD18332635FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5B542A0-4722-465C-981B-BD18332635FF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F4B1792-87D6-402F-A1A4-7878B76B19BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F4B1792-87D6-402F-A1A4-7878B76B19BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F4B1792-87D6-402F-A1A4-7878B76B19BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F4B1792-87D6-402F-A1A4-7878B76B19BC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FA4E26D4-C0A0-42B9-81F1-5CDE436FF9E1}
+	EndGlobalSection
+EndGlobal
