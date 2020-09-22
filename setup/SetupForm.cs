@@ -21,7 +21,7 @@ namespace setup
     public partial class SetupForm : Form
     {
         const string NAME = "Max 4ds Tools";
-        const string VERSION = "0.5.0";
+        const string VERSION = "0.5.1";
         const string UNINS_NAME = "max4ds_uninstall.exe";
 
         readonly int[] versions = { 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11 };
