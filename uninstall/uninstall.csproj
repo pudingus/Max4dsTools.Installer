@@ -10,7 +10,7 @@
 	<Authors>pudingus</Authors>
 	<ApplicationManifest>app.manifest</ApplicationManifest>
 	<ApplicationIcon>..\setup.ico</ApplicationIcon>
-	<Version>0.5.1</Version>
+	<Version>0.8.0</Version>
   </PropertyGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

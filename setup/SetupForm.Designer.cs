@@ -202,7 +202,7 @@
             this.lblSize.Name = "lblSize";
             this.lblSize.Size = new System.Drawing.Size(225, 13);
             this.lblSize.TabIndex = 23;
-            this.lblSize.Text = "At least 183 KB of free disk space is required.";
+            this.lblSize.Text = "At least 220 KB of free disk space is required.";
             // 
             // SetupForm
             // 
@@ -226,6 +226,7 @@
             this.Name = "SetupForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Max 4ds Tools Setup";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.SetupForm_FormClosing);
             this.Load += new System.EventHandler(this.SetupForm_Load);
             this.grpDestination.ResumeLayout(false);
             this.grpDestination.PerformLayout();

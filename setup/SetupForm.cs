@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -15,35 +15,43 @@ using System.Reflection;
 using System.IO.Compression;
 using System.Security;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 namespace setup
 {
     public partial class SetupForm : Form
     {
-        const string NAME = "Max 4ds Tools";
-        const string VERSION = "0.5.1";
-        const string UNINS_NAME = "max4ds_uninstall.exe";
+        private enum Pages
+        {
+            Directory,
+            Installing,
+            Completed,
+            Aborted
+        }
 
-        readonly int[] versions = { 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11 };
-        readonly string[] editions = { "3dsMax", "3dsMaxDesign" };
-        readonly string[] languages = { "MAX-1:409", "MAX-1:40C", "MAX-1:407", "MAX-1:411", "MAX-1:412", "MAX-1:804" };
+        const string NAME = "Max 4ds Tools";
+        const string VERSION = "0.8.0";
+        const string UNINS_NAME = "max4ds_uninstall.exe";
 
         const string RES_PATH = "setup.embed.";
 
         bool ABORT = false;
-
         private StreamWriter log;
-
         private string _instDir;
+        private Pages page = Pages.Directory;
+
 
         public SetupForm() {
             InitializeComponent();
             this.Text = $"{NAME} {VERSION} Setup";
-            this.FormClosing += SetupForm_FormClosing;
             this.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         }
 
         private string FindDirInHive(RegistryKey hive) {
+            int[] versions = { 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11 };
+            string[] editions = { "3dsMax", "3dsMaxDesign" };
+            string[] languages = { "MAX-1:409", "MAX-1:40C", "MAX-1:407", "MAX-1:411", "MAX-1:412", "MAX-1:804" };
+
             foreach (var edition in editions) {
                 foreach (var version in versions) {
 
@@ -135,16 +143,6 @@ namespace setup
             }
         }
 
-        private enum Pages
-        {
-            Directory,
-            Installing,
-            Completed,
-            Aborted
-        }
-
-        private Pages page = Pages.Directory;
-
         private void btnCancel_Click(object sender, EventArgs e) {            
             this.Close();           
         }
@@ -162,7 +160,7 @@ namespace setup
             }
         }
 
-        private bool IsValidDir(string dir) {
+        private bool IsInstallDirValid(string dir) {
             bool absolute = PathCore.IsPathFullyQualified(dir);
             if (!absolute) {
                 MessageBox.Show("Invalid directory.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -213,6 +211,7 @@ namespace setup
             File.Move(path, Path.Combine(dir, newName));
         }
 
+        //only for zip entries
         private bool IsPathDirectory (string path) {
             var sep1 = Path.DirectorySeparatorChar.ToString();
             var sep2 = Path.AltDirectorySeparatorChar.ToString();
@@ -436,6 +435,17 @@ namespace setup
             return result;
         }
 
+        [DllImport("Kernel32.dll")]
+        private static extern bool QueryFullProcessImageName([In] IntPtr hProcess, [In] uint dwFlags, [Out] StringBuilder lpExeName, [In, Out] ref uint lpdwSize);
+
+        public static string GetMainModuleFileName(Process process, int buffer = 1024) {
+            var fileNameBuilder = new StringBuilder(buffer);
+            uint bufferLength = (uint)fileNameBuilder.Capacity + 1;
+            return QueryFullProcessImageName(process.Handle, 0, fileNameBuilder, ref bufferLength) ?
+                fileNameBuilder.ToString() :
+                null;
+        }
+    
         private void btnInstall_Click(object sender, EventArgs e) {
             if (page == Pages.Completed || page == Pages.Aborted) {
                 this.Close();
@@ -444,7 +454,32 @@ namespace setup
             var instDir = tbxDestination.Text;
             _instDir = instDir;
 
-            if (!IsValidDir(instDir)) return;
+            if (!IsInstallDirValid(instDir)) return;
+
+            var exeName = "3dsmax.exe";
+            var exePath = Path.Combine(instDir, exeName);
+
+            if (!File.Exists(exePath)) {
+                MessageBox.Show($"{exeName} not found in the provided directory.\nPlease select a different folder.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var procs = Process.GetProcessesByName("3dsmax");
+            //var procs = Process.GetProcesses();
+
+            foreach (var proc in procs) {
+                string name = "";
+                try {
+                    name = GetMainModuleFileName(proc);
+                }
+                catch (Exception) { }
+
+                Debug.WriteLine(name);
+                if (name == exePath) {
+                    MessageBox.Show($"{exeName} is running.\nPlease close 3ds Max before proceeding.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+            }
 
             SetPage(Pages.Installing);
             Directory.SetCurrentDirectory(instDir);
@@ -488,8 +523,7 @@ namespace setup
 
             if (ABORT) return;
 
-            var exeName = "3dsmax.exe";
-            var exePath = Path.Combine(instDir, exeName);
+
             bool useOldFolderStructure = IsOldVersion(exePath);
 
             var macrosDir = useOldFolderStructure ? "ui\\macroscripts\\" : "macroscripts\\";
