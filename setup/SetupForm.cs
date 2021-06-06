@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -130,6 +130,18 @@ namespace setup
                 dir = "Select 3ds Max folder";
             }
             tbxDestination.Text = dir;
+
+            // calculate needed size
+            using var zipStream = GetEmbeddedResourceStream("files.zip");
+
+            var zip = new ZipArchive(zipStream);
+            long length = 0;
+            foreach (var entry in zip.Entries) {
+                length += entry.Length;
+            }         
+
+            lblSize.Text = $"At least {length / 1024} KB of free disk space is required.";
+            // ------------------------
         }
 
         private void SetupForm_FormClosing(object sender, FormClosingEventArgs e) {
