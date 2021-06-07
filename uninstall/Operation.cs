@@ -65,18 +65,23 @@ namespace uninstall
 
         public static void Uninstall(Db db, Action<string> a) {
             foreach (var text in db.FILES) {
-                try {
-                    File.Delete(text);
-                    a.Invoke($"Remove: {text}");
+                if (File.Exists(text)) {
+                    try {
+                        File.Delete(text);
+                        a.Invoke($"Remove: {text}");
+                    }
+                    catch (Exception) {
+                        a.Invoke($"Error: {text}");
+                    }
                 }
-                catch (Exception) {
+                else {
                     a.Invoke($"Not found: {text}");
                 }
             }
 
             foreach (var folder in db.FOLDERS) {
                 try {
-                    Directory.Delete(folder);
+                    Directory.Delete(folder);  //delete only empty folder
                     a.Invoke($"Remove: {folder}");
                 }
                 catch (IOException) { }

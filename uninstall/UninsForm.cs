@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -67,13 +68,46 @@ namespace uninstall
             }
         }
 
+        [DllImport("Kernel32.dll")]
+        private static extern bool QueryFullProcessImageName([In] IntPtr hProcess, [In] uint dwFlags, [Out] StringBuilder lpExeName, [In, Out] ref uint lpdwSize);
+
+        public static string GetMainModuleFileName(Process process, int buffer = 1024) {
+            var fileNameBuilder = new StringBuilder(buffer);
+            uint bufferLength = (uint)fileNameBuilder.Capacity + 1;
+            return QueryFullProcessImageName(process.Handle, 0, fileNameBuilder, ref bufferLength) ?
+                fileNameBuilder.ToString() :
+                null;
+        }
+
         private void btnUninstall_Click(object sender, EventArgs e) {
 
             if (page == Pages.Completed) {
                 this.Close();
                 return;
             }
-            
+
+            //check if 3dsmax.exe in the directory is running
+            var procs = Process.GetProcessesByName("3dsmax");
+            //var procs = Process.GetProcesses();
+
+            var exeName = "3dsmax.exe";
+            var exePath = Path.Combine(Directory.GetCurrentDirectory(), "3dsmax.exe");
+
+            foreach (var proc in procs) {
+                string name = "";
+                try {
+                    name = GetMainModuleFileName(proc);
+                }
+                catch (Exception) { }
+
+                Debug.WriteLine(name);
+                if (name == exePath) {
+                    MessageBox.Show($"{exeName} is running.\nPlease close 3ds Max before proceeding.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+            }
+
+
             SetPage(Pages.Uninstalling);
             LogLine(Directory.GetCurrentDirectory());
 
