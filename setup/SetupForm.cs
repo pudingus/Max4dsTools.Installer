@@ -32,6 +32,7 @@ namespace setup
         const string NAME = "Max 4ds Tools";
         const string VERSION = "0.8.0";
         const string UNINS_NAME = "max4ds_uninstall.exe";
+        const string PUBLISHER = "pudingus";
 
         const string RES_PATH = "setup.embed.";
 
@@ -242,19 +243,53 @@ namespace setup
             return result;
         }
 
-        private void ExtractZip(Stream zipStream, string instDir, string macrosDir) {
+
+        private void ExtractZip(Stream zipStream, string instDir, int majorVer) {            
+
+            var macrosDir = (majorVer >= 1 && majorVer < 15) ? "ui\\macroscripts\\" : "macroscripts\\";
+
             log.WriteLine(">files");
             var dirs = new List<string>();
             var zip = new ZipArchive(zipStream);
             foreach (var entry in zip.Entries) {
-                var fullname = entry.FullName;
-                fullname = fullname.Replace("/", "\\");
+                string fullname = entry.FullName.Replace("/", "\\");
+
                 // remap folder name
-                var replaceName = "macros\\";
+                var replaceName = "macroscripts\\";
                 if (fullname.StartsWith(replaceName)) {
                     fullname = macrosDir + fullname.Remove(0, replaceName.Length);
                 }
                 // -------------
+
+                if (fullname == "plugins\\") {
+                    if (majorVer >= 22 && majorVer <= 24) {
+                        //
+                    }
+                    else {
+                        continue;
+                    }
+                }
+
+                var replaceWith = "plugins\\";
+                replaceName = "plugins\\2022\\";
+                if (fullname.StartsWith(replaceName)) {
+                    if (majorVer == 24) {
+                        fullname = replaceWith + fullname.Remove(0, replaceName.Length);
+                    }
+                    else {
+                        continue;
+                    }
+                }
+
+                replaceName = "plugins\\2020-2021\\";
+                if (fullname.StartsWith(replaceName)) {
+                    if (majorVer == 22 || majorVer == 23) {
+                        fullname = replaceWith + fullname.Remove(0, replaceName.Length);
+                    }
+                    else {
+                        continue;
+                    }
+                }
 
                 Debug.WriteLine(fullname);
 
@@ -268,8 +303,7 @@ namespace setup
                     foreach (var sp in segments) {
                         dirsum += sp + "\\";
                         var dirPath = Path.Combine(instDir, dirsum);
-                        if (!Directory.Exists(dirPath)) {
-                            dirs.Add(dirsum);
+                        if (!Directory.Exists(dirPath)) {                            
                             var result = TryCreateDir(dirPath);
 
                             while (result == false) {
@@ -277,13 +311,14 @@ namespace setup
                                 if (dresult == DialogResult.Retry) {
                                     result = TryCreateDir(dirPath);
                                 }
-                                else { Abort(); return; }
+                                else { WriteFolders(log, dirs); Abort();  return; }
                             }
+
+                            dirs.Add(dirsum);
                         }
                     }
                 }
-                else {
-                    log.WriteLine(fullname);
+                else {                    
                     try {
                         var fullpath = Path.Combine(instDir, fullname);
                         {
@@ -299,8 +334,11 @@ namespace setup
                                 else if (dresult == DialogResult.Ignore) {
                                     result = true;
                                 }
-                                else if (dresult == DialogResult.Abort) { Abort(); return; }
+                                else if (dresult == DialogResult.Abort) { WriteFolders(log, dirs); Abort(); return; }
                             }
+
+                            log.WriteLine(fullname);
+                            log.Flush();
                         }                        
                         File.SetLastWriteTimeUtc(fullpath, entry.LastWriteTime.UtcDateTime);
                         LogLine($"Extract: {fullname}");
@@ -310,32 +348,30 @@ namespace setup
                     }
                 }                
             }
+            WriteFolders(log, dirs);            
+        }
+
+        private void WriteFolders(StreamWriter log, List<string> dirs) {
             if (dirs.Count != 0) {
                 dirs.Reverse();
                 log.WriteLine(">folders");
                 foreach (var dir in dirs) {
                     log.WriteLine(dir);
                 }
+                log.Flush();
             }
-            
         }
 
-        private bool IsOldVersion(string exePath) {
-            bool oldVersion = false;
+        private int GetVersion(string exePath) {
+            int majorVer = 0;
             try {
-                var info = FileVersionInfo.GetVersionInfo(exePath);
-                var version = info.FileVersion;
-                if (version != null) {
-                    var majorVer = info.FileMajorPart;
-                    if (majorVer < 15) {
-                        oldVersion = true;
-                    }
-                }
+                var info = FileVersionInfo.GetVersionInfo(exePath);                
+                majorVer = info.FileMajorPart;                
             }
             catch (FileNotFoundException) {
 
             }
-            return oldVersion;
+            return majorVer;
         }
 
         private Stream GetEmbeddedResourceStream(string resName) {
@@ -387,20 +423,15 @@ namespace setup
                     using var key = baseKey.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\" + subname);
                     log.WriteLine(">registry");
                     log.WriteLine(key.Name);
+                    log.Flush();
                     key.SetValue("DisplayName", NAME);
                     key.SetValue("DisplayVersion", VERSION);
                     key.SetValue("DisplayIcon", uninsPath + ",0");
-                    key.SetValue("Publisher", "pudingus");
+                    key.SetValue("Publisher", PUBLISHER);
                     key.SetValue("UninstallString", uninsPath);
                     key.SetValue("NoModify", 1);
                     key.SetValue("NoRepair", 1);
-                } 
-                {
-                    using var key = baseKey.CreateSubKey(@"Software\" + NAME);
-                    log.WriteLine(key.Name);
-                    key.SetValue("LastInstallDir", _instDir);
                 }
-
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
@@ -458,24 +489,27 @@ namespace setup
                 null;
         }
     
-        private void btnInstall_Click(object sender, EventArgs e) {
-            if (page == Pages.Completed || page == Pages.Aborted) {
-                this.Close();
-                return;
-            }
-            var instDir = tbxDestination.Text;
-            _instDir = instDir;
 
-            if (!IsInstallDirValid(instDir)) return;
+        private void Handler(Pages page) {
+            SetPage(page);
+        }
 
+        private bool ValidatePath(string instDir) {
+            //check if directory exists
+            if (!IsInstallDirValid(instDir)) return false;
+
+            //check if directory contains 3dsmax.exe
             var exeName = "3dsmax.exe";
             var exePath = Path.Combine(instDir, exeName);
 
             if (!File.Exists(exePath)) {
                 MessageBox.Show($"{exeName} not found in the provided directory.\nPlease select a different folder.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                return false;
             }
 
+
+
+            //check if 3dsmax.exe in the directory is running
             var procs = Process.GetProcessesByName("3dsmax");
             //var procs = Process.GetProcesses();
 
@@ -489,11 +523,38 @@ namespace setup
                 Debug.WriteLine(name);
                 if (name == exePath) {
                     MessageBox.Show($"{exeName} is running.\nPlease close 3ds Max before proceeding.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    return false;
                 }
             }
 
-            SetPage(Pages.Installing);
+            return true;
+        }
+
+        private void PostExtract() {
+            try {
+                using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+                
+                using var key = baseKey.CreateSubKey(@"Software\" + NAME);
+                log.WriteLine(key.Name);
+                log.Flush();
+                key.SetValue("LastInstallDir", _instDir);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            catch (SecurityException) { }
+
+
+            var file = Path.Combine(_instDir, "scripts/startup/startup_mafia_4ds.ms");
+            DisableFile(file);
+        }
+        
+        private void Install(string instDir, Action<Pages> action) {
+            _instDir = instDir;
+
+            if (!ValidatePath(instDir)) return;
+
+            //SetPage(Pages.Installing);
+            action(Pages.Installing);
             Directory.SetCurrentDirectory(instDir);
             LogLine($"Output folder: {instDir}");
 
@@ -501,7 +562,7 @@ namespace setup
 
             try {
                 if (File.Exists(uninsPath)) {
-                    this.Refresh();
+                    Refresh();
                     LogLine("Removing previous installation...");
                     var proc = Process.Start(uninsPath, "/silent /dontdelete");
                     proc.WaitForExit();
@@ -531,31 +592,45 @@ namespace setup
             log.WriteLine(">version");
             log.WriteLine(VERSION);
 
+            log.Flush();
+
             WriteUninstaller(uninsPath);
 
             if (ABORT) return;
 
 
-            bool useOldFolderStructure = IsOldVersion(exePath);
-
-            var macrosDir = useOldFolderStructure ? "ui\\macroscripts\\" : "macroscripts\\";
+            //--------------- 
+            var exeName = "3dsmax.exe";
+            var exePath = Path.Combine(instDir, exeName);
 
             using var zipStream = GetEmbeddedResourceStream("files.zip");
-            
-            ExtractZip(zipStream, instDir, macrosDir);   //try
+
+            ExtractZip(zipStream, instDir, GetVersion(exePath));   //try
+
+            //------------ -----------------------
 
             if (ABORT) return;
 
             WriteRegistry(uninsPath);
 
-            var disableFile = Path.Combine(instDir, "scripts/startup/startup_mafia_4ds.ms");
-            DisableFile(disableFile);
+            PostExtract();
 
-            SetPage(Pages.Completed);
+            //SetPage(Pages.Completed);
+            action(Pages.Completed);
+
             LogLine("Completed");
-            this.Refresh();
+            Refresh();
 
             log.Close();
+        }
+
+        private void btnInstall_Click(object sender, EventArgs e) {
+            if (page == Pages.Completed || page == Pages.Aborted) {
+                this.Close();
+                return;
+            }
+
+            Install(tbxDestination.Text, Handler);
         }
 
         private void tbxLog_KeyDown(object sender, KeyEventArgs e) {
