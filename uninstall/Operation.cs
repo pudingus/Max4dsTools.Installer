@@ -24,7 +24,6 @@ namespace uninstall
             public string NAME = "";
             public List<string> FILES = new List<string>();
             public List<string> REGKEYS = new List<string>();
-            public List<string> FOLDERS = new List<string>();
         }
 
         private static bool allowCleanup = false;
@@ -57,37 +56,50 @@ namespace uninstall
             section = sections.Find(t => t.Name == "registry");
             if (section != null) db.REGKEYS = section.Lines;
 
-            section = sections.Find(t => t.Name == "folders");
-            if (section != null) db.FOLDERS = section.Lines;
-
             return db;
         }
 
+        private static bool IsPathDirectory(string path) {
+            var sep1 = Path.DirectorySeparatorChar.ToString();
+            var sep2 = Path.AltDirectorySeparatorChar.ToString();
+            return path.EndsWith(sep1) || path.EndsWith(sep2);
+        }
+
         public static void Uninstall(Db db, Action<string> a) {
-            foreach (var text in db.FILES) {
-                if (File.Exists(text)) {
-                    try {
-                        File.Delete(text);
-                        a.Invoke($"Remove: {text}");
+            db.FILES.Reverse();
+
+            foreach (var path in db.FILES) {
+                if (IsPathDirectory(path)) {
+                    if (Directory.Exists(path)) {
+                        try {
+                            Directory.Delete(path); //deletes only empty folder
+                            a($"Remove: {path}");
+                        }
+                        catch (Exception) {
+                            a($"Error: {path}");
+                        }
                     }
-                    catch (Exception) {
-                        a.Invoke($"Error: {text}");
+                    else {
+                        a($"Not found: {path}");
                     }
                 }
                 else {
-                    a.Invoke($"Not found: {text}");
+                    if (File.Exists(path)) {
+                        try {
+                            File.Delete(path);
+                            a($"Remove: {path}");
+                        }
+                        catch (Exception) {
+                            a($"Error: {path}");
+                        }
+                    }
+                    else {
+                        a($"Not found: {path}");
+                    }
                 }
             }
 
-            foreach (var folder in db.FOLDERS) {
-                try {
-                    Directory.Delete(folder);  //delete only empty folder
-                    a.Invoke($"Remove: {folder}");
-                }
-                catch (IOException) { }
-                catch (SecurityException) { }
-                catch (UnauthorizedAccessException) { }
-            }
+            db.REGKEYS.Reverse();
 
             foreach (var key in db.REGKEYS) {
                 try {

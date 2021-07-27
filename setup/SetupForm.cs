@@ -37,7 +37,7 @@ namespace setup
         const string RES_PATH = "setup.embed.";
 
         bool ABORT = false;
-        private StreamWriter log;
+        private StreamWriter db;
         private string _instDir;
         private Pages page = Pages.Directory;
 
@@ -315,9 +315,9 @@ namespace setup
                 new Item { path = "macroscripts\\", newPath = macrosDir },
             };
 
-            log.WriteLine(">files");
-            var dirs = new List<string>();
+            db.WriteLine(">files");
             var zip = new ZipArchive(zipStream);
+
             foreach (var entry in zip.Entries) {
                 string fullname = RemapPaths(entry.FullName, majorVer, list);
 
@@ -330,7 +330,6 @@ namespace setup
                     var sep2 = Path.AltDirectorySeparatorChar;
                     var segments = fullname.Split(new char[]{sep1, sep2}, StringSplitOptions.RemoveEmptyEntries);
 
-
                     string dirsum = "";
                     foreach (var sp in segments) {
                         dirsum += sp + "\\";
@@ -339,14 +338,14 @@ namespace setup
                             var result = TryCreateDir(dirPath);
 
                             while (result == false) {
-                                var dresult = MessageBox.Show($"Error creating directory: \n\n{dirPath}\n\nClick retry to try again, or\nCancel to abort the installation.", Text, MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
+                                var dresult = RetryAbort("Error creating directory:", dirPath);                                
                                 if (dresult == DialogResult.Retry) {
                                     result = TryCreateDir(dirPath);
                                 }
-                                else { WriteFolders(log, dirs); Abort();  return; }
+                                else { Abort();  return; }
                             }
 
-                            dirs.Add(dirsum);
+                            db.WriteLine(dirsum);
                         }
                     }
                 }
@@ -355,22 +354,18 @@ namespace setup
                         var fullpath = Path.Combine(instDir, fullname);
                         {
                             using var entryStream = entry.Open();
-
                             var result = WriteStreamToFile(entryStream, fullpath);
 
                             while (result == false) {
-                                var dresult = MessageBox.Show($"Error opening file for writing: \n\n{fullpath}\n\nClick abort to stop the installation,\nRetry to try again, or\nIgnore to skip this file.", Text, MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Error);
+                                var dresult = RetryAbort("Error opening file for writing:", fullpath);
                                 if (dresult == DialogResult.Retry) {
                                     result = WriteStreamToFile(entryStream, fullpath);
                                 }
-                                else if (dresult == DialogResult.Ignore) {
-                                    result = true;
-                                }
-                                else if (dresult == DialogResult.Abort) { WriteFolders(log, dirs); Abort(); return; }
+                                else if (dresult == DialogResult.Abort) { Abort(); return; }
                             }
 
-                            log.WriteLine(fullname);
-                            log.Flush();
+                            db.WriteLine(fullname);
+                            db.Flush();
                         }                        
                         File.SetLastWriteTimeUtc(fullpath, entry.LastWriteTime.UtcDateTime);
                         LogLine($"Extract: {fullname}");
@@ -379,19 +374,7 @@ namespace setup
                         LogLine($"Error: {fullname}");
                     }
                 }                
-            }
-            WriteFolders(log, dirs);            
-        }
-
-        private void WriteFolders(StreamWriter log, List<string> dirs) {
-            if (dirs.Count != 0) {
-                dirs.Reverse();
-                log.WriteLine(">folders");
-                foreach (var dir in dirs) {
-                    log.WriteLine(dir);
-                }
-                log.Flush();
-            }
+            }          
         }
 
         private int GetVersion(string exePath) {
@@ -400,9 +383,7 @@ namespace setup
                 var info = FileVersionInfo.GetVersionInfo(exePath);                
                 majorVer = info.FileMajorPart;                
             }
-            catch (FileNotFoundException) {
-
-            }
+            catch (FileNotFoundException) { }
             return majorVer;
         }
 
@@ -429,12 +410,9 @@ namespace setup
             var result = WriteStreamToFile(uninsStream, uninsPath);
 
             while (result == false) {
-                var dresult = MessageBox.Show($"Error opening file for writing: \n\n{uninsPath}\n\nClick abort to stop the installation,\nRetry to try again, or\nIgnore to skip this file.", Text, MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Error);
+                var dresult = RetryAbort("Error opening file for writing:", uninsPath);
                 if (dresult == DialogResult.Retry) {
                     result = WriteStreamToFile(uninsStream, uninsPath);
-                }
-                else if (dresult == DialogResult.Ignore) {
-                    result = true;
                 }
                 else if (dresult == DialogResult.Abort) {
                     Abort(); 
@@ -453,9 +431,9 @@ namespace setup
                 var subname = NAME + "__" + guid.ToString("N");
                 {
                     using var key = baseKey.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\" + subname);
-                    log.WriteLine(">registry");
-                    log.WriteLine(key.Name);
-                    log.Flush();
+                    db.WriteLine(">registry");
+                    db.WriteLine(key.Name);
+                    db.Flush();
                     key.SetValue("DisplayName", NAME);
                     key.SetValue("DisplayVersion", VERSION);
                     key.SetValue("DisplayIcon", uninsPath + ",0");
@@ -468,27 +446,36 @@ namespace setup
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
             catch (SecurityException) { }
+
+            try {
+                using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+
+                using var key = baseKey.CreateSubKey(@"Software\" + NAME);
+                db.WriteLine(key.Name);
+                db.Flush();
+                key.SetValue("LastInstallDir", _instDir);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            catch (SecurityException) { }
         }
 
         private void DisableFile(string filename) {
             try {
                 File.Move(filename, filename + "__off");
             }         
-            catch (IOException) {
-
-            }
-            catch (UnauthorizedAccessException) {
-
-            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
-        private string GetLogPath(string uninsPath) {
-            var uninsDir = Path.GetDirectoryName(uninsPath);
-            var logName = Path.GetFileNameWithoutExtension(uninsPath) + ".dat";
-            return Path.Combine(uninsDir, logName);
+        private string GetDbPath(string uninsPath) {
+            string uninsDir = Path.GetDirectoryName(uninsPath);
+            string dbName = Path.GetFileNameWithoutExtension(uninsPath) + ".dat";
+            return Path.Combine(uninsDir, dbName);
         }
 
         private void LogLine(string line) {
+            if (line == null) return;
             //Debug.WriteLine(line);
             tbxLog.AppendText(line + Environment.NewLine);
         }
@@ -497,7 +484,7 @@ namespace setup
             SetPage(Pages.Aborted);
             ABORT = true;
             LogLine("Aborted");
-            log?.Close();
+            db?.Close();
         }
 
         private StreamWriter TryStreamWriter(string path) {
@@ -563,21 +550,34 @@ namespace setup
         }
 
         private void PostExtract() {
-            try {
-                using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
-                
-                using var key = baseKey.CreateSubKey(@"Software\" + NAME);
-                log.WriteLine(key.Name);
-                log.Flush();
-                key.SetValue("LastInstallDir", _instDir);
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-            catch (SecurityException) { }
-
-
             var file = Path.Combine(_instDir, "scripts/startup/startup_mafia_4ds.ms");
             DisableFile(file);
+        }
+
+        private void UninstallPrevious(string uninsPath) {
+            if (uninsPath == null) return;
+
+            if (File.Exists(uninsPath)) {
+                Refresh();
+                LogLine("Removing previous installation...");
+                try {
+                    var proc = Process.Start(uninsPath, "/silent /dontdelete");
+                    if (proc.WaitForExit(15000)) {
+                        System.Threading.Thread.Sleep(400);
+                    }
+                    else {
+                        Abort();
+                    }
+                }
+                catch (Exception ex) {
+                    LogLine($"{ex.GetType().Name}: {ex.Message}");
+                    Abort();
+                }
+            }                      
+        }
+
+        private DialogResult RetryAbort(string error, string path) {
+            return MessageBox.Show($"{error} \n\n{path}\n\nClick retry to try again, or\nCancel to abort the installation.", Text, MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
         }
         
         private void Install(string instDir, Action<Pages> action) {
@@ -592,25 +592,17 @@ namespace setup
 
             var uninsPath = Path.Combine(instDir, UNINS_NAME);
 
-            try {
-                if (File.Exists(uninsPath)) {
-                    Refresh();
-                    LogLine("Removing previous installation...");
-                    var proc = Process.Start(uninsPath, "/silent /dontdelete");
-                    proc.WaitForExit();
-                    System.Threading.Thread.Sleep(400);
-                }
-            }
-            catch (IOException) { }
-            catch (Win32Exception) { }
+            UninstallPrevious(uninsPath);
 
-            var logPath = GetLogPath(uninsPath);
-            log = TryStreamWriter(logPath);
+            if (ABORT) return;
 
-            while (log == null) {
-                var dresult = MessageBox.Show($"Error opening file for writing: \n\n{logPath}\n\nClick retry to try again, or\nCancel to abort the installation.", Text, MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
+            var dbPath = GetDbPath(uninsPath);
+            db = TryStreamWriter(dbPath);
+
+            while (db == null) {
+                var dresult = RetryAbort("Error opening file for writing:", dbPath);
                 if (dresult == DialogResult.Retry) {
-                    log = TryStreamWriter(logPath);
+                    db = TryStreamWriter(dbPath);
                 }
                 else {
                     Abort();
@@ -618,18 +610,19 @@ namespace setup
                 }
             }
 
-            log.WriteLine(">name");
-            log.WriteLine(NAME);
+            db.WriteLine(">name");
+            db.WriteLine(NAME);
 
-            log.WriteLine(">version");
-            log.WriteLine(VERSION);
+            db.WriteLine(">version");
+            db.WriteLine(VERSION);
 
-            log.Flush();
+            db.Flush();
 
             WriteUninstaller(uninsPath);
-
             if (ABORT) return;
 
+            WriteRegistry(uninsPath);
+            if (ABORT) return;
 
             //--------------- 
             var exeName = "3dsmax.exe";
@@ -641,9 +634,7 @@ namespace setup
 
             //------------ -----------------------
 
-            if (ABORT) return;
-
-            WriteRegistry(uninsPath);
+            if (ABORT) return;            
 
             PostExtract();
 
@@ -653,7 +644,7 @@ namespace setup
             LogLine("Completed");
             Refresh();
 
-            log.Close();
+            db.Close();
         }
 
         private void btnInstall_Click(object sender, EventArgs e) {
