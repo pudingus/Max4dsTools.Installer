@@ -48,40 +48,67 @@ namespace setup
             this.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         }
 
-        private string FindDirInHive(RegistryKey hive) {
-            int[] versions = { 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11 };
-            string[] editions = { "3dsMax", "3dsMaxDesign" };
+        private string FindDirInVersion(RegistryKey key, int version) {
+            if (key == null) return null;
+
             string[] languages = { "MAX-1:409", "MAX-1:40C", "MAX-1:407", "MAX-1:411", "MAX-1:412", "MAX-1:804" };
 
+            if (version >= 15) {
+                try {
+                    string dir = key.GetValue("Installdir") as string;
+
+                    if (dir != null && Directory.Exists(dir)) {
+                        return dir;
+                    }
+                }
+                catch (SecurityException) { }
+                catch (ObjectDisposedException) { }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+            else {
+                foreach (var language in languages) {
+                    try {
+                        using var langKey = key.OpenSubKey(language);
+                        if (langKey == null) continue;
+
+                        string dir = langKey.GetValue("Installdir") as string;
+
+                        if (dir != null && Directory.Exists(dir)) {
+                            return dir;
+                        }
+                    }
+                    catch (ArgumentNullException) { }
+                    catch (ObjectDisposedException) { }
+                    catch (SecurityException) { }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+            }            
+
+            return null;
+        }
+
+        private string FindDirInHive(RegistryKey hive) {
+            if (hive == null) return null;
+
+            int[] versions = { 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11 };
+            string[] editions = { "3dsMax", "3dsMaxDesign" };
+
             foreach (var edition in editions) {
+
                 foreach (var version in versions) {
+                    string value = null;
+                    try {
+                        using var key = hive.OpenSubKey($@"SOFTWARE\Autodesk\{edition}\{version}.0");
 
-                    using var key = hive.OpenSubKey($@"SOFTWARE\Autodesk\{edition}\{version}.0");
-                    if (key == null) {
-                        continue;
+                        value = FindDirInVersion(key, version);
                     }
-                    else {
-                        var value = key.GetValue("Installdir") as string;
-                        if (value == null || !Directory.Exists(value)) {
-                            foreach (var language in languages) {
-                                using var langKey = key.OpenSubKey(language);
-                                if (langKey == null) {
-                                    continue;
-                                }
-                                else {
-                                    value = langKey.GetValue("Installdir") as string;
-                                    if (value == null) continue;
-                                    else if (!Directory.Exists(value)) continue;
-                                    else return value as string;
-                                }
-                            }
+                    catch (ArgumentNullException) { }
+                    catch (ObjectDisposedException) { }
+                    catch (SecurityException) { }                    
 
-                        }
-                        else {
-                            key.Close();
-                            return value as string;
-                        }
-                    }
+                    if (value != null) return value;                    
                 }
             }
             return null;
@@ -90,14 +117,18 @@ namespace setup
         private string Find3dsMaxDir() {
             string dir = null;
             try {
-                var HKLM64 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+                var views = new List<RegistryView> { 
+                    RegistryView.Registry64,
+                    RegistryView.Registry32 
+                };
 
-                dir = FindDirInHive(HKLM64);
-                HKLM64.Close();
-                if (dir == null) {
-                    var HKLM32 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
-                    dir = FindDirInHive(HKLM32);
-                    HKLM32.Close();
+                foreach (var view in views) {
+                    //"If you request a 64-bit view on a 32-bit operating system, the returned keys will be in the 32-bit view."
+                    using var hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
+
+                    dir = FindDirInHive(hklm);
+
+                    if (dir != null) break;
                 }
             }
             catch (SecurityException) { }
@@ -210,7 +241,7 @@ namespace setup
             }
             else if (page == Pages.Aborted) {
                 lblPage.Text = "Installation Aborted";
-                lblShort.Text = "Setup was unsuccessfull.";
+                lblShort.Text = "Setup was unsuccessful.";
                 lblLong.Text = "Aborted";
                 btnInstall.Text = "Close";
                 btnCancel.Enabled = false;
@@ -243,53 +274,54 @@ namespace setup
             return result;
         }
 
+        struct Item
+        {
+            public string path;
+            public int[] condition;
+            public string newPath;
+        };
 
-        private void ExtractZip(Stream zipStream, string instDir, int majorVer) {            
+        private string RemapPaths(string fullname, int majorVer, Item[] list) {
+            fullname = fullname.Replace("/", "\\");          
 
-            var macrosDir = (majorVer >= 1 && majorVer < 15) ? "ui\\macroscripts\\" : "macroscripts\\";
+            bool match = false;
+            foreach (var item in list) {
+                if (fullname.StartsWith(item.path) && (item.condition == null || item.condition.Contains(majorVer))) {
+                    match = true;
+
+                    if (item.newPath != null) {
+                        fullname = item.newPath + fullname.Remove(0, item.path.Length);
+                    }
+                    break;
+                }
+            }
+            if (match == false) fullname = null;
+
+            return fullname;
+        }
+
+        private void ExtractZip(Stream zipStream, string instDir, int majorVer) {
+
+            var macrosDir = (majorVer >= 1 && majorVer < 15) ? "ui\\macroscripts\\" : null;
+
+            var list = new Item[] {
+                new Item { path = "plugins\\2015-2016\\", condition = new int[] {17, 18}, newPath = "plugins\\" },
+                new Item { path = "plugins\\2017\\", condition = new int[] {19}, newPath = "plugins\\" },
+                new Item { path = "plugins\\2018\\", condition = new int[] {20}, newPath = "plugins\\" },
+                new Item { path = "plugins\\2019\\", condition = new int[] {21}, newPath = "plugins\\" },
+                new Item { path = "plugins\\2020-2021\\", condition = new int[] {22, 23}, newPath = "plugins\\" },
+                new Item { path = "plugins\\2022\\", condition = new int[] {24}, newPath = "plugins\\" },
+                new Item { path = "scripts\\" },
+                new Item { path = "macroscripts\\", newPath = macrosDir },
+            };
 
             log.WriteLine(">files");
             var dirs = new List<string>();
             var zip = new ZipArchive(zipStream);
             foreach (var entry in zip.Entries) {
-                string fullname = entry.FullName.Replace("/", "\\");
+                string fullname = RemapPaths(entry.FullName, majorVer, list);
 
-                // remap folder name
-                var replaceName = "macroscripts\\";
-                if (fullname.StartsWith(replaceName)) {
-                    fullname = macrosDir + fullname.Remove(0, replaceName.Length);
-                }
-                // -------------
-
-                if (fullname == "plugins\\") {
-                    if (majorVer >= 22 && majorVer <= 24) {
-                        //
-                    }
-                    else {
-                        continue;
-                    }
-                }
-
-                var replaceWith = "plugins\\";
-                replaceName = "plugins\\2022\\";
-                if (fullname.StartsWith(replaceName)) {
-                    if (majorVer == 24) {
-                        fullname = replaceWith + fullname.Remove(0, replaceName.Length);
-                    }
-                    else {
-                        continue;
-                    }
-                }
-
-                replaceName = "plugins\\2020-2021\\";
-                if (fullname.StartsWith(replaceName)) {
-                    if (majorVer == 22 || majorVer == 23) {
-                        fullname = replaceWith + fullname.Remove(0, replaceName.Length);
-                    }
-                    else {
-                        continue;
-                    }
-                }
+                if (fullname == null) continue;
 
                 Debug.WriteLine(fullname);
 
