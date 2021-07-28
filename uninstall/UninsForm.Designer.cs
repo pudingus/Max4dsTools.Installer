@@ -62,8 +62,8 @@
             this.lblLong.Name = "lblLong";
             this.lblLong.Size = new System.Drawing.Size(447, 34);
             this.lblLong.TabIndex = 14;
-            this.lblLong.Text = "Max 4ds Tools will be uninstalled from the following folder. Click Uninstall to s" +
-    "tart the uninstallation.";
+            this.lblLong.Text = "Max 4ds Tools will be uninstalled from the following folder.\r\nIf you are upgradin" +
+    "g to a newer version, there\'s no need to uninstall.";
             // 
             // panel1
             // 

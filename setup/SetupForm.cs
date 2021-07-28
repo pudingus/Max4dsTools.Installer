@@ -561,15 +561,26 @@ namespace setup
                 Refresh();
                 LogLine("Removing previous installation...");
                 try {
-                    var proc = Process.Start(uninsPath, "/silent /dontdelete");
+                    using var proc = Process.Start(uninsPath, "/silent /dontdelete");
+                    
                     if (proc.WaitForExit(15000)) {
-                        System.Threading.Thread.Sleep(400);
+                        if (proc.ExitCode > 0) {
+                            LogLine($"Uninstallation failed. Exit code: {proc.ExitCode}");
+                            Abort();
+                        }
+                        else {
+                            proc.Close();
+                            System.Threading.Thread.Sleep(400);
+                        }
                     }
                     else {
+                        LogLine($"Uninstallation failed");
+                        proc.Kill();
                         Abort();
                     }
                 }
                 catch (Exception ex) {
+                    LogLine($"Uninstallation failed");
                     LogLine($"{ex.GetType().Name}: {ex.Message}");
                     Abort();
                 }

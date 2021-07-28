@@ -65,30 +65,26 @@ namespace uninstall
 
                     var db = Operation.LoadDb(dbPath);
                     Operation.Uninstall(db, LogLine);
+                    //System.Threading.Thread.Sleep(90000);
 
                     if (options.delete) Operation.Cleanup(exePath, dbPath);
                 }
-                catch (Exception) { }
+                catch (Exception) {
+                    return 1;
+                }
             }
             else {
                 Operation.Db db;
                 string dbPath;
+
                 try {
                     exePath = Application.ExecutablePath;
                     dbPath = GetLogPath(exePath);
 
                     db = Operation.LoadDb(dbPath);
                 }
-                catch (FileNotFoundException) {
-                    MessageBox.Show("Cannot open uninstall database. File not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return 1;
-                }
-                catch (IOException ex) {
-                    MessageBox.Show("Cannot open uninstall database.\n\n" + ex.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return 1;
-                }
-                catch (Exception ex) {    //in case did some shit in LoadDb, default handler cant be used before App.Run
-                    MessageBox.Show(ex.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                catch (Exception ex) {    //default .NET Framework handler is not available before Application.Run
+                    MessageBox.Show($"Cannot open uninstall database.\n\n{ex.GetType().Name}: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return 1;
                 }
 
