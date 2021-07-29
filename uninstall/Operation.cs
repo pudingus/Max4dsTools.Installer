@@ -20,8 +20,7 @@ namespace uninstall
         }
 
         public class Db
-        {            
-            public string NAME = "";
+        {
             public List<string> FILES = new List<string>();
             public List<string> REGKEYS = new List<string>();
         }
@@ -49,9 +48,6 @@ namespace uninstall
             Section section;
             section = sections.Find(t => t.Name == "files");
             if (section != null) db.FILES = section.Lines;
-
-            section = sections.Find(t => t.Name == "name");
-            if (section != null) db.NAME = section.Lines[0];
 
             section = sections.Find(t => t.Name == "registry");
             if (section != null) db.REGKEYS = section.Lines;
@@ -117,7 +113,8 @@ namespace uninstall
         public static void Cleanup(string exePath, string dbPath) {
             if (allowCleanup) {
                 Process.Start(new ProcessStartInfo() {
-                    Arguments = $"/c timeout /t 1 /nobreak & del \"{exePath}\" & del \"{dbPath}\" ",
+                    // 'del' doesnt set errorlevel on failure, thats why this looks weird
+                    Arguments = $"/c timeout /t 1 /nobreak & del \"{exePath}\" 2>&1 1>nul | findstr \"^\" || del \"{dbPath}\" ",
                     WindowStyle = ProcessWindowStyle.Hidden,
                     CreateNoWindow = true,
                     FileName = "cmd.exe"

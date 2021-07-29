@@ -17,4 +17,8 @@
     <Exec Command="copy /Y $(TargetPath) $(SolutionDir)\setup\embed\" />
   </Target>
 
+  <ItemGroup>
+    <Compile Include="..\common.cs" Link="common.cs" />
+  </ItemGroup>
+
 </Project>

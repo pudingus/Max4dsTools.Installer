@@ -12,10 +12,14 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
+using setup_common;
+
 namespace uninstall
 {
     public partial class UninsForm : Form
     {
+        const string NAME = Shared.NAME;
+
         Operation.Db db;
         public UninsForm(Operation.Db db) {
             InitializeComponent();
@@ -34,7 +38,7 @@ namespace uninstall
 
         private void UninsForm_Load(object sender, EventArgs e) {
             tbxPath.Text = Directory.GetCurrentDirectory();
-            Text = db.NAME + " Uninstall";
+            Text = NAME + " Uninstall";
         }
 
         private void btnCancel_Click(object sender, EventArgs e) {
@@ -50,7 +54,7 @@ namespace uninstall
             this.page = page;
             if (page == Pages.Uninstalling) {
                 lblPage.Text = "Uninstalling";
-                lblShort.Text = $"Please wait while {db.NAME} is being uninstalled.";
+                lblShort.Text = $"Please wait while {NAME} is being uninstalled.";
                 lblLong.Text = "Uninstalling...";
                 btnCancel.Enabled = false;
                 progressBar.Visible = true;

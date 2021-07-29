@@ -17,6 +17,8 @@ using System.Security;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 
+using setup_common;
+
 namespace setup
 {
     public partial class SetupForm : Form
@@ -29,10 +31,12 @@ namespace setup
             Aborted
         }
 
-        const string NAME = "Max 4ds Tools";
-        const string VERSION = "0.8.0";
+        const string NAME = Shared.NAME;
+        const string VERSION = Shared.VERSION;
+
         const string UNINS_NAME = "max4ds_uninstall.exe";
         const string PUBLISHER = "pudingus";
+        const string URL = "https://github.com/pudingus/Max4dsTools";
 
         const string RES_PATH = "setup.embed.";
 
@@ -240,7 +244,7 @@ namespace setup
                 btnInstall.Enabled = true;
             }
             else if (page == Pages.Aborted) {
-                lblPage.Text = "Installation Aborted";
+                lblPage.Text = "Installation Failed";
                 lblShort.Text = "Setup was unsuccessful.";
                 lblLong.Text = "Aborted";
                 btnInstall.Text = "Close";
@@ -305,12 +309,12 @@ namespace setup
             var macrosDir = (majorVer >= 1 && majorVer < 15) ? "ui\\macroscripts\\" : null;
 
             var list = new Item[] {
-                new Item { path = "plugins\\2015-2016\\", condition = new int[] {17, 18}, newPath = "plugins\\" },
-                new Item { path = "plugins\\2017\\", condition = new int[] {19}, newPath = "plugins\\" },
-                new Item { path = "plugins\\2018\\", condition = new int[] {20}, newPath = "plugins\\" },
-                new Item { path = "plugins\\2019\\", condition = new int[] {21}, newPath = "plugins\\" },
-                new Item { path = "plugins\\2020-2021\\", condition = new int[] {22, 23}, newPath = "plugins\\" },
-                new Item { path = "plugins\\2022\\", condition = new int[] {24}, newPath = "plugins\\" },
+                new Item { path = "plugins\\2015-2016\\", condition = new int[] {17, 18}, newPath = "stdplugs\\" },
+                new Item { path = "plugins\\2017\\", condition = new int[] {19}, newPath = "stdplugs\\" },
+                new Item { path = "plugins\\2018\\", condition = new int[] {20}, newPath = "stdplugs\\" },
+                new Item { path = "plugins\\2019\\", condition = new int[] {21}, newPath = "stdplugs\\" },
+                new Item { path = "plugins\\2020-2021\\", condition = new int[] {22, 23}, newPath = "stdplugs\\" },
+                new Item { path = "plugins\\2022\\", condition = new int[] {24}, newPath = "stdplugs\\" },
                 new Item { path = "scripts\\" },
                 new Item { path = "macroscripts\\", newPath = macrosDir },
             };
@@ -338,11 +342,14 @@ namespace setup
                             var result = TryCreateDir(dirPath);
 
                             while (result == false) {
-                                var dresult = RetryAbort("Error creating directory:", dirPath);                                
+                                var dresult = RetryCancel("Error creating directory:", dirPath);                                
                                 if (dresult == DialogResult.Retry) {
                                     result = TryCreateDir(dirPath);
                                 }
-                                else { Abort();  return; }
+                                else { 
+                                    Abort();  
+                                    return; 
+                                }
                             }
 
                             db.WriteLine(dirsum);
@@ -357,11 +364,14 @@ namespace setup
                             var result = WriteStreamToFile(entryStream, fullpath);
 
                             while (result == false) {
-                                var dresult = RetryAbort("Error opening file for writing:", fullpath);
+                                var dresult = RetryCancel("Error opening file for writing:", fullpath);
                                 if (dresult == DialogResult.Retry) {
                                     result = WriteStreamToFile(entryStream, fullpath);
                                 }
-                                else if (dresult == DialogResult.Abort) { Abort(); return; }
+                                else {
+                                    Abort(); 
+                                    return; 
+                                }
                             }
 
                             db.WriteLine(fullname);
@@ -410,11 +420,11 @@ namespace setup
             var result = WriteStreamToFile(uninsStream, uninsPath);
 
             while (result == false) {
-                var dresult = RetryAbort("Error opening file for writing:", uninsPath);
+                var dresult = RetryCancel("Error opening file for writing:", uninsPath);
                 if (dresult == DialogResult.Retry) {
                     result = WriteStreamToFile(uninsStream, uninsPath);
                 }
-                else if (dresult == DialogResult.Abort) {
+                else {
                     Abort(); 
                     return;
                 }
@@ -441,6 +451,7 @@ namespace setup
                     key.SetValue("UninstallString", uninsPath);
                     key.SetValue("NoModify", 1);
                     key.SetValue("NoRepair", 1);
+                    key.SetValue("URLInfoAbout", URL);
                 }
             }
             catch (IOException) { }
@@ -587,7 +598,7 @@ namespace setup
             }                      
         }
 
-        private DialogResult RetryAbort(string error, string path) {
+        private DialogResult RetryCancel(string error, string path) {
             return MessageBox.Show($"{error} \n\n{path}\n\nClick retry to try again, or\nCancel to abort the installation.", Text, MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
         }
         
@@ -611,7 +622,7 @@ namespace setup
             db = TryStreamWriter(dbPath);
 
             while (db == null) {
-                var dresult = RetryAbort("Error opening file for writing:", dbPath);
+                var dresult = RetryCancel("Error opening file for writing:", dbPath);
                 if (dresult == DialogResult.Retry) {
                     db = TryStreamWriter(dbPath);
                 }
@@ -620,14 +631,6 @@ namespace setup
                     return;
                 }
             }
-
-            db.WriteLine(">name");
-            db.WriteLine(NAME);
-
-            db.WriteLine(">version");
-            db.WriteLine(VERSION);
-
-            db.Flush();
 
             WriteUninstaller(uninsPath);
             if (ABORT) return;

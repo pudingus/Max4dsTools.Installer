@@ -28,6 +28,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\common.cs" Link="common.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="embed\files.zip" />
     <EmbeddedResource Include="embed\uninstall.exe" />
   </ItemGroup>

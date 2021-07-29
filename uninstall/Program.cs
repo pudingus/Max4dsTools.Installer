@@ -96,7 +96,8 @@ namespace uninstall
                     if (options.delete) Operation.Cleanup(exePath, dbPath);
                 }
                 catch (Exception ex) {
-                    MessageBox.Show(ex.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    //MessageBox.Show($"Error occured, some files could not be removed:\n{exePath}\n{dbPath}\n\n{ex.GetType().Name}: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show($"Some files could not be removed:\n{exePath}\n{dbPath}\n\nYou can remove them manually.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return 1;
                 }
             }
