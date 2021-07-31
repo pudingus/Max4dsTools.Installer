@@ -309,12 +309,13 @@ namespace setup
             var macrosDir = (majorVer >= 1 && majorVer < 15) ? "ui\\macroscripts\\" : null;
 
             var list = new Item[] {
-                new Item { path = "plugins\\2015-2016\\", condition = new int[] {17, 18}, newPath = "stdplugs\\" },
-                new Item { path = "plugins\\2017\\", condition = new int[] {19}, newPath = "stdplugs\\" },
-                new Item { path = "plugins\\2018\\", condition = new int[] {20}, newPath = "stdplugs\\" },
-                new Item { path = "plugins\\2019\\", condition = new int[] {21}, newPath = "stdplugs\\" },
-                new Item { path = "plugins\\2020-2021\\", condition = new int[] {22, 23}, newPath = "stdplugs\\" },
-                new Item { path = "plugins\\2022\\", condition = new int[] {24}, newPath = "stdplugs\\" },
+                new Item { path = "stdplugs\\2014\\", condition = new int[] {16}, newPath = "stdplugs\\" },
+                new Item { path = "stdplugs\\2015-2016\\", condition = new int[] {17, 18}, newPath = "stdplugs\\" },
+                new Item { path = "stdplugs\\2017\\", condition = new int[] {19}, newPath = "stdplugs\\" },
+                new Item { path = "stdplugs\\2018\\", condition = new int[] {20}, newPath = "stdplugs\\" },
+                new Item { path = "stdplugs\\2019\\", condition = new int[] {21}, newPath = "stdplugs\\" },
+                new Item { path = "stdplugs\\2020-2021\\", condition = new int[] {22, 23}, newPath = "stdplugs\\" },
+                new Item { path = "stdplugs\\2022\\", condition = new int[] {24}, newPath = "stdplugs\\" },
                 new Item { path = "scripts\\" },
                 new Item { path = "macroscripts\\", newPath = macrosDir },
             };
@@ -444,7 +445,7 @@ namespace setup
                     db.WriteLine(">registry");
                     db.WriteLine(key.Name);
                     db.Flush();
-                    key.SetValue("DisplayName", NAME);
+                    key.SetValue("DisplayName", $"{NAME} {VERSION}");
                     key.SetValue("DisplayVersion", VERSION);
                     key.SetValue("DisplayIcon", uninsPath + ",0");
                     key.SetValue("Publisher", PUBLISHER);
