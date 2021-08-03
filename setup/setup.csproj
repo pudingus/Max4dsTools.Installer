@@ -8,7 +8,7 @@
 	<LangVersion>8.0</LangVersion>
 	<AssemblyTitle>Max 4ds Tools Setup</AssemblyTitle>
 	<Authors>pudingus</Authors>
-	<ApplicationManifest>app.manifest</ApplicationManifest>
+	<ApplicationManifest>..\app.manifest</ApplicationManifest>
 	<ApplicationIcon>..\setup.ico</ApplicationIcon>
 	<Version>0.8.0</Version>
 	<AssemblyName>setup</AssemblyName>
@@ -22,22 +22,13 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <ItemGroup>
-    <None Remove="embed\files.zip" />
-    <None Remove="embed\uninstall.exe" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="..\common.cs" Link="common.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
+  <ItemGroup>  
     <EmbeddedResource Include="embed\files.zip" />
     <EmbeddedResource Include="embed\uninstall.exe" />
-  </ItemGroup>
-
-  <ItemGroup>
+	<Compile Include="..\Common_.cs" Link="Common.cs" />
+    <None Include="..\app.manifest" Link="app.manifest" />
     <Reference Include="System.IO.Compression" />
   </ItemGroup>
+
 
 </Project>

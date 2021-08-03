@@ -31,8 +31,8 @@ namespace setup
             Aborted
         }
 
-        const string NAME = Shared.NAME;
-        const string VERSION = Shared.VERSION;
+        const string NAME = Common.NAME;
+        const string VERSION = Common.VERSION;
 
         const string UNINS_NAME = "max4ds_uninstall.exe";
         const string PUBLISHER = "pudingus";
@@ -509,18 +509,6 @@ namespace setup
             return result;
         }
 
-        [DllImport("Kernel32.dll")]
-        private static extern bool QueryFullProcessImageName([In] IntPtr hProcess, [In] uint dwFlags, [Out] StringBuilder lpExeName, [In, Out] ref uint lpdwSize);
-
-        public static string GetMainModuleFileName(Process process, int buffer = 1024) {
-            var fileNameBuilder = new StringBuilder(buffer);
-            uint bufferLength = (uint)fileNameBuilder.Capacity + 1;
-            return QueryFullProcessImageName(process.Handle, 0, fileNameBuilder, ref bufferLength) ?
-                fileNameBuilder.ToString() :
-                null;
-        }
-    
-
         private void Handler(Pages page) {
             SetPage(page);
         }
@@ -538,24 +526,9 @@ namespace setup
                 return false;
             }
 
-
-
-            //check if 3dsmax.exe in the directory is running
-            var procs = Process.GetProcessesByName("3dsmax");
-            //var procs = Process.GetProcesses();
-
-            foreach (var proc in procs) {
-                string name = "";
-                try {
-                    name = GetMainModuleFileName(proc);
-                }
-                catch (Exception) { }
-
-                Debug.WriteLine(name);
-                if (name == exePath) {
-                    MessageBox.Show($"{exeName} is running.\nPlease close 3ds Max before proceeding.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return false;
-                }
+            if (Common.IsMaxRunning(exePath)) {
+                MessageBox.Show($"{exeName} is running.\nPlease close 3ds Max before proceeding.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
             }
 
             return true;

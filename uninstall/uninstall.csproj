@@ -8,7 +8,7 @@
 	<LangVersion>8.0</LangVersion>
 	<AssemblyTitle>Uninstall Max 4ds Tools</AssemblyTitle>
 	<Authors>pudingus</Authors>
-	<ApplicationManifest>app.manifest</ApplicationManifest>
+	<ApplicationManifest>..\app.manifest</ApplicationManifest>
 	<ApplicationIcon>..\setup.ico</ApplicationIcon>
 	<Version>0.8.0</Version>
   </PropertyGroup>
@@ -18,7 +18,8 @@
   </Target>
 
   <ItemGroup>
-    <Compile Include="..\common.cs" Link="common.cs" />
+    <Compile Include="..\Common_.cs" Link="Common.cs" />
+	<None Include="..\app.manifest" Link="app.manifest" />
   </ItemGroup>
 
 </Project>
