@@ -18,7 +18,7 @@
   </Target>
 
   <ItemGroup>
-    <Compile Include="..\Common_.cs" Link="Common.cs" />
+    <Compile Include="..\Common.cs" Link="Common.cs" />
 	<None Include="..\app.manifest" Link="app.manifest" />
   </ItemGroup>
 

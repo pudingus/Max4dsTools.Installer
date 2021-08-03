@@ -25,7 +25,7 @@
   <ItemGroup>  
     <EmbeddedResource Include="embed\files.zip" />
     <EmbeddedResource Include="embed\uninstall.exe" />
-	<Compile Include="..\Common_.cs" Link="Common.cs" />
+	<Compile Include="..\Common.cs" Link="Common.cs" />
     <None Include="..\app.manifest" Link="app.manifest" />
     <Reference Include="System.IO.Compression" />
   </ItemGroup>
